@@ -1,28 +1,78 @@
 # PixelOrbit
 
-Pixel-art NASA spacecraft real time telemetry monitor.
+A live pixel-art universe powered by real NASA data.
 
-The project is currently at development stage.
+PixelOrbit transforms satellites, telescopes, rovers, and spacecraft into interactive pixel-art characters that display real mission insights and telemetry.
 
-## What is this?
+# Daily development picture
 
-PixelOrbit displays live satellites, telescopes, and spacecraft in a retro pixel-art style.
 
-Each object is generated from real NASA data and displayed with interactive telemetry such as:
 
-- Altitude
-- Velocity
-- Orbit information
-- Mission status
+## Features
 
-# Installation
+* Real NASA and space-agency data
+* Pixel-art spacecraft and satellites
+* Interactive telemetry visualizations
+* Mobile-friendly swipe navigation
+* Beautiful pixel-art space backgrounds
+* Open source
 
-The project page can be found at https://leotsio.github.io/PixelOrbit/ once its finished.
+## Missions
 
-To install this project on your computer run the following command on github
+Planned support includes:
+
+* International Space Station (ISS)
+* James Webb Space Telescope (JWST)
+* Hubble Space Telescope
+* Voyager 1 & Voyager 2
+* Mars rovers
+* Near-Earth objects and asteroids
+
+## Example Insights
+
+PixelOrbit doesn't just show numbers.
+
+Instead of raw:
+
+```
+Altitude: 535 km
+Velocity: 27,300 km/h
+```
+
+PixelOrbit explains what those values mean through interactive animations and visualizations.
+
+## Asset Pipeline
+
+PixelOrbit includes a Python-based asset generator that:
+
+1. Downloads spacecraft images
+2. Removes backgrounds automatically
+3. Generates pixel-art sprites
+4. Optimizes color palettes
+5. Exports transparent PNG assets
+
+## Installation
 
 ```bash
-git clone ...
+git clone https://github.com/leotsio/PixelOrbit.git
 cd PixelOrbit
+
+/usr/local/bin/python3.11 -m venv .venv311
+source .venv311/bin/activate
+
 pip install -r requirements.txt
 ```
+
+## Development Status
+
+PixelOrbit is currently under active development.
+
+## License
+
+Open source.
+
+## Vision
+
+NASA data should feel alive.
+
+PixelOrbit turns spacecraft telemetry into a living pixel-art universe that anyone can explore.

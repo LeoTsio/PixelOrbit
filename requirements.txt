@@ -1,4 +1,4 @@
 Pillow>=10.0.0
+pillow-heif
 "rembg[cpu]"
 requests
-numpy

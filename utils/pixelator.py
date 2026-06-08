@@ -1,30 +1,45 @@
 import sys
 from io import BytesIO
 from pathlib import Path
-from PIL import Image
+from urllib.parse import urlparse
+import numpy as np
+from PIL import Image, ImageEnhance
 import requests
 import rembg
 import os
+from pillow_heif import register_heif_opener
+
+register_heif_opener()
 
 # check if image url has been given in run command
 if len(sys.argv) < 2:
-    raise Exception("\033[31m[ERROR] Please provide image URL in run command.\033[0m")
+    raise Exception("\033[31m[ERROR] Please provide image URL/path in run command.\033[0m")
 
 # CONFIGURATION PARAMETERS
-IMAGE_URL = sys.argv[1] # copy the image url to a variable
+IMAGE_SOURCE = sys.argv[1] # copy the image url/path to a variable
 OUTPUT_PATH = Path(__file__).resolve().parent.parent / "output" / "pixelatedImages" # repo-relative output path
-BLOCK_SIZE = 16
+BLOCK_SIZE = 4
 PALETTE_SIZE = 10
 SIZE = 256 # fixed height in all pixelated images
+VIBRANCY = 1 # color saturation multiplier
+ALPHA_KEEP_THRESHOLD = 200 # pixels below this alpha become fully transparent
 
-# DOWNLOAD IMAGE
-response = requests.get(IMAGE_URL) # fetch image
+# OPEN IMAGE
+parsed_source = urlparse(IMAGE_SOURCE)
+input_path = Path(IMAGE_SOURCE).expanduser()
 
-if response.status_code == 200:
-    imgRaw = Image.open(BytesIO(response.content)).convert("RGBA") # open image
+if parsed_source.scheme in {"http", "https"}:
+    response = requests.get(IMAGE_SOURCE) # fetch image
+
+    if response.status_code == 200:
+        imgRaw = Image.open(BytesIO(response.content)).convert("RGBA") # open image
+    else:
+        # Raise an error if image failed to fetch
+        raise Exception(f"\033[31m[ERROR] Failed to fetch image with URL {IMAGE_SOURCE}.\nReceived status code {response.status_code}.\033[0m")
+elif input_path.is_file():
+    imgRaw = Image.open(input_path).convert("RGBA") # open local image
 else:
-    # Raise an error if image failed to fetch
-    raise Exception(f"\033[31m[ERROR] Failed to fetch image with URL {IMAGE_URL}.\nReceived status code {response.status_code}.\033[0m")
+    raise Exception(f"\033[31m[ERROR] Input is neither a valid URL nor an existing file path: {IMAGE_SOURCE}\033[0m")
 
 print(f"\033[34mFormat: {imgRaw.format}, Size: {imgRaw.size}, Mode: {imgRaw.mode}\033[0m") # (debug)
 imgRaw.show() # (test)
@@ -38,12 +53,24 @@ imgCutout = imgCutout.crop(bbox) # crop image to bbox
 
 # PIXELIZE AND RESIZE
 if (imgCutout.width > imgCutout.height):
-    imgPixel = imgCutout.resize((SIZE, int(imgCutout.height * SIZE / imgCutout.width)), Image.Resampling.NEAREST)
+    targetWidth = SIZE
+    targetHeight = int(imgCutout.height * SIZE / imgCutout.width)
 else:
-    imgPixel = imgCutout.resize((int(imgCutout.width * SIZE / imgCutout.height), SIZE), Image.Resampling.NEAREST)
+    targetWidth = int(imgCutout.width * SIZE / imgCutout.height)
+    targetHeight = SIZE
+
+pixelWidth = max(1, targetWidth // BLOCK_SIZE)
+pixelHeight = max(1, targetHeight // BLOCK_SIZE)
+imgPixel = imgCutout.resize((pixelWidth, pixelHeight), Image.Resampling.NEAREST)
+imgPixel = imgPixel.resize((targetWidth, targetHeight), Image.Resampling.NEAREST)
 
 alpha = imgPixel.getchannel("A") # get alpha channel (transparency)
-imgPixelRGB = imgPixel.convert("RGB").quantize(colors=PALETTE_SIZE).convert("RGBA")
+alphaArray = np.array(alpha)
+alphaArray[alphaArray < ALPHA_KEEP_THRESHOLD] = 0
+alphaArray[alphaArray >= ALPHA_KEEP_THRESHOLD] = 255
+alpha = Image.fromarray(alphaArray, "L")
+imgPixelRGB = ImageEnhance.Color(imgPixel.convert("RGB")).enhance(VIBRANCY)
+imgPixelRGB = imgPixelRGB.quantize(colors=PALETTE_SIZE).convert("RGBA")
 imgPixelRGB.putalpha(alpha)
 imgPixel = imgPixelRGB
 
