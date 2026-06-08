@@ -1,2 +1,3 @@
 output/
 .venv311/
+.DS_store
