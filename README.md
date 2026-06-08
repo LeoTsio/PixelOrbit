@@ -4,9 +4,7 @@ A live pixel-art universe powered by real NASA data.
 
 PixelOrbit transforms satellites, telescopes, rovers, and spacecraft into interactive pixel-art characters that display real mission insights and telemetry.
 
-# Daily development picture
-
-
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ## Features
 
