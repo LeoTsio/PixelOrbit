@@ -3,12 +3,14 @@
     "id": "iss",
     "index": 0,
     "provider": "iss",
-    "sprite": "assets/sprites/iss.png"
+    "sprite": "assets/sprites/iss.png",
+    "name": "ISS"
   },
   {
     "id": "hubble",
     "index": 1,
     "provider": "hubble",
-    "sprite": "assets/sprites/hubble.png"
+    "sprite": "assets/sprites/hubble.png",
+    "name": "Hubble"
   }
 ]
