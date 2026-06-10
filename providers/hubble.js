@@ -3,7 +3,7 @@ import { getCountryFromCoords } from "../utils/reverseGeocode.js";
 
 export async function getDataHUBBLE() {
     const tleResponse = await fetch(
-        "https://celestrak.org/NORAD/elements/gp.php?CATNR=20580&FORMAT=tle"
+        "https://celestrak.org/NORAD/elements/gp.php?CATNR=20580&FORMAT=TLE"
     );
 
     const tleText = await tleResponse.text();
