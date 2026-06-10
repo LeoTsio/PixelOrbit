@@ -1,0 +1,14 @@
+[
+  {
+    "id": "iss",
+    "index": 0,
+    "provider": "iss",
+    "sprite": "assets/sprites/iss.png"
+  },
+  {
+    "id": "hubble",
+    "index": 1,
+    "provider": "hubble",
+    "sprite": "assets/sprites/hubble.png"
+  }
+]

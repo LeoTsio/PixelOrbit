@@ -39,16 +39,6 @@ Velocity: 27,300 km/h
 
 PixelOrbit explains what those values mean through interactive animations and visualizations.
 
-## Asset Pipeline
-
-PixelOrbit includes a Python-based asset generator that:
-
-1. Downloads spacecraft images
-2. Removes backgrounds automatically
-3. Generates pixel-art sprites
-4. Optimizes color palettes
-5. Exports transparent PNG assets
-
 ## Installation
 
 ```bash

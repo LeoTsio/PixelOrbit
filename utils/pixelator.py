@@ -5,9 +5,10 @@ from urllib.parse import urlparse
 import numpy as np
 from PIL import Image, ImageEnhance
 import requests
-import rembg
+from requests import RequestException
 import os
 from pillow_heif import register_heif_opener
+from transparent_background import Remover
 
 register_heif_opener()
 
@@ -17,25 +18,34 @@ if len(sys.argv) < 2:
 
 # CONFIGURATION PARAMETERS
 IMAGE_SOURCE = sys.argv[1] # copy the image url/path to a variable
-OUTPUT_PATH = Path(__file__).resolve().parent.parent / "output" / "pixelatedImages" # repo-relative output path
-BLOCK_SIZE = 4
-PALETTE_SIZE = 10
+OUTPUT_PATH = Path(__file__).resolve().parent.parent / "tmp" # repo-relative tmp path
+BLOCK_SIZE = 1
+PALETTE_SIZE = 16
 SIZE = 256 # fixed height in all pixelated images
 VIBRANCY = 1 # color saturation multiplier
-ALPHA_KEEP_THRESHOLD = 200 # pixels below this alpha become fully transparent
+ALPHA_KEEP_THRESHOLD = 150 # pixels below this alpha become fully transparent
+
+bgRemover = Remover()
 
 # OPEN IMAGE
 parsed_source = urlparse(IMAGE_SOURCE)
 input_path = Path(IMAGE_SOURCE).expanduser()
 
 if parsed_source.scheme in {"http", "https"}:
-    response = requests.get(IMAGE_SOURCE) # fetch image
+    try:
+        response = requests.get(
+            IMAGE_SOURCE,
+            headers={
+                "User-Agent": "Mozilla/5.0 PixelOrbit/1.0",
+                "Accept": "image/*,*/*;q=0.8",
+            },
+            timeout=20,
+        )
+        response.raise_for_status()
+    except RequestException as exc:
+        raise Exception(f"\033[31m[ERROR] Failed to fetch image with URL {IMAGE_SOURCE}.\n{exc}\033[0m") from exc
 
-    if response.status_code == 200:
-        imgRaw = Image.open(BytesIO(response.content)).convert("RGBA") # open image
-    else:
-        # Raise an error if image failed to fetch
-        raise Exception(f"\033[31m[ERROR] Failed to fetch image with URL {IMAGE_SOURCE}.\nReceived status code {response.status_code}.\033[0m")
+    imgRaw = Image.open(BytesIO(response.content)).convert("RGBA") # open image
 elif input_path.is_file():
     imgRaw = Image.open(input_path).convert("RGBA") # open local image
 else:
@@ -45,10 +55,17 @@ print(f"\033[34mFormat: {imgRaw.format}, Size: {imgRaw.size}, Mode: {imgRaw.mode
 imgRaw.show() # (test)
 
 # REMOVE BACKGROUND
-imgCutout = rembg.remove(imgRaw).convert("RGBA") # type: ignore
+imgCutout = bgRemover.process(imgRaw.convert("RGB"), type="rgba")
+if isinstance(imgCutout, np.ndarray):
+    imgCutout = Image.fromarray(imgCutout)
+if not isinstance(imgCutout, Image.Image):
+    raise TypeError("\033[31m[ERROR] Background remover returned an unsupported image type.\033[0m")
+imgCutout = imgCutout.convert("RGBA")
 
 # CROP
 bbox = imgCutout.getbbox() # get non transparent object boundaries
+if bbox is None:
+    raise ValueError("\033[31m[ERROR] No visible foreground remained after background removal.\033[0m")
 imgCutout = imgCutout.crop(bbox) # crop image to bbox
 
 # PIXELIZE AND RESIZE
