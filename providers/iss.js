@@ -8,7 +8,7 @@ export async function getDataISS() {
 
     const data = await response.json();
     const country = await getCountryFromCoords(data.latitude, data.longitude); // Get country from coordinates
-
+/*
     const crewResponse = await fetch(
         "http://api.open-notify.org/astros.json" // Fetch crew data from the open-notify API
     );
@@ -16,7 +16,7 @@ export async function getDataISS() {
     const crewData = await crewResponse.json(); // Parse crew data
     const crew = crewData.people.filter(person => person.craft === "ISS").length; // Filter crew members on the ISS
     const crewNames = crewData.people.filter(person => person.craft === "ISS").map(person => person.name); // Get names of crew members on the ISS
-
+*/
     return {
         stat1: {
             label: "altitude",
@@ -36,7 +36,7 @@ export async function getDataISS() {
         },
         stat5: {
             label: "crew names",
-            value: crewNames // Display the names of crew members on the ISS
+            value: "unavailable" // crewNames // Display the names of crew members on the ISS (temporarily unavailable)
         }
     };
 }
