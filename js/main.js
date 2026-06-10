@@ -10,7 +10,7 @@ let spacecrafts = [];
 let currentIndex = 0;
 
 async function loadSpacecrafts() {
-    const response = await fetch("data/spacecraftData.json");
+    const response = await fetch("./data/spacecraftData.json");
     spacecrafts = await response.json();
 }
 
