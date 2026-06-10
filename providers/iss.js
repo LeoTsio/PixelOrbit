@@ -32,7 +32,7 @@ export async function getDataISS() {
         },
         stat4: {
             label: "crew",
-            value: crew, // Display the number of crew members on the ISS
+            value: "unavailable", // Display the number of crew members on the ISS
         },
         stat5: {
             label: "crew names",
