@@ -4,13 +4,43 @@
     "index": 0,
     "provider": "iss",
     "sprite": "assets/sprites/iss.png",
-    "name": "ISS"
+    "name": "ISS",
+    "scale": 1,
+    "stats": {
+      "stat1": {
+        "label": "altitude",
+        "icon": "assets/icons/altitude.png"
+      },
+      "stat2": {
+        "label": "crew",
+        "icon": "assets/icons/crew.png"
+      },
+      "stat3": {
+        "label": "above",
+        "icon": "assets/icons/globe.png"
+      }
+    }
   },
   {
     "id": "hubble",
     "index": 1,
     "provider": "hubble",
     "sprite": "assets/sprites/hubble.png",
-    "name": "Hubble"
+    "name": "Hubble",
+    "scale": 0.8,
+    "stats": {
+      "stat1": {
+        "label": "altitude",
+        "icon": "assets/icons/altitude.png"
+      },
+      "stat2": {
+        "label": "above",
+        "icon": "assets/icons/globe.png"
+      },
+      "stat3": {
+        "label": "velocity",
+        "icon": "assets/icons/speed.png"
+      }
+    }
   }
 ]

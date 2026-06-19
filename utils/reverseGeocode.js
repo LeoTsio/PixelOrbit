@@ -1,12 +1,22 @@
 export async function getCountryFromCoords(latitude, longitude) {
-    const url =
-        `https://api.bigdatacloud.net/data/reverse-geocode-client` +
-        `?latitude=${latitude}` +
-        `&longitude=${longitude}` +
-        `&localityLanguage=en`;
+    try {
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=jsonv2`
+        );
 
-    const response = await fetch(url);
-    const data = await response.json();
+        if (!response.ok) {
+            return "Ocean";
+        }
 
-    return data.countryName || "Unknown location";
+        const data = await response.json();
+
+        return (
+            data.address?.country ||
+            data.address?.ocean ||
+            data.address?.sea ||
+            "Ocean"
+        );
+    } catch {
+        return "Ocean";
+    }
 }

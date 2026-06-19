@@ -1,52 +1,54 @@
 import * as satellite from "https://cdn.jsdelivr.net/npm/satellite.js/+esm";
 import { getCountryFromCoords } from "../utils/reverseGeocode.js";
 
-export async function getDataHUBBLE() {
-    const tleResponse = await fetch(
-        "https://celestrak.org/NORAD/elements/gp.php?CATNR=20580&FORMAT=TLE"
-    );
+const HUBBLE_TLE = [
+    "1 20580U 90037B   26168.14857957  .00002158  00000+0  12411-3 0  9998",
+    "2 20580  28.4696  75.7775 0002758 335.8992  24.1758 15.26722813 10173"
+];
 
-    const tleText = await tleResponse.text();
-    const lines = tleText.trim().split("\n");
-
-    const line1 = lines[1].trim();
-    const line2 = lines[2].trim();
-
-    const satrec = satellite.twoline2satrec(line1, line2);
+function calculateHubbleNow() {
+    const satrec = satellite.twoline2satrec(HUBBLE_TLE[0], HUBBLE_TLE[1]);
 
     const now = new Date();
     const result = satellite.propagate(satrec, now);
 
-    const position = result.position;
-    const velocity = result.velocity;
+    if (!result.position || !result.velocity) {
+        return null;
+    }
 
     const gmst = satellite.gstime(now);
-    const geo = satellite.eciToGeodetic(position, gmst);
+    const geo = satellite.eciToGeodetic(result.position, gmst);
 
     const latitude = satellite.degreesLat(geo.latitude);
     const longitude = satellite.degreesLong(geo.longitude);
-    const altitude = geo.height;
 
     const speed = Math.sqrt(
-        velocity.x * velocity.x +
-        velocity.y * velocity.y +
-        velocity.z * velocity.z
+        result.velocity.x ** 2 +
+        result.velocity.y ** 2 +
+        result.velocity.z ** 2
     ) * 3600;
 
-    const location = await getCountryFromCoords(latitude, longitude);
-
     return {
-        stat1: {
-            label: "altitude",
-            value: Math.round(altitude) + " km" // Display altitude in kilometers
-        },
-        stat2: {
-            label: "velocity",
-            value: Math.round(speed) + " km/h" // Display velocity in kilometers per hour
-        },
-        stat3: {
-            label: "above",
-            value: location // Display the country over which the Hubble is currently located
-        }
+        altitude: Math.round(geo.height) + " km",
+        location: getCountryFromCoords(latitude, longitude),
+        speed: Math.round(speed) + " km/h"
     };
+}
+
+export function getData() {
+    const hubble = calculateHubbleNow();
+
+    if (!hubble) {
+        return [
+            Promise.resolve("—"),
+            Promise.resolve("—"),
+            Promise.resolve("—")
+        ];
+    }
+
+    return [
+        Promise.resolve(hubble.altitude),
+        hubble.location,
+        Promise.resolve(hubble.speed)
+    ];
 }

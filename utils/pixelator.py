@@ -19,11 +19,12 @@ if len(sys.argv) < 2:
 # CONFIGURATION PARAMETERS
 IMAGE_SOURCE = sys.argv[1] # copy the image url/path to a variable
 OUTPUT_PATH = Path(__file__).resolve().parent.parent / "tmp" # repo-relative tmp path
-BLOCK_SIZE = 1
-PALETTE_SIZE = 16
+BLOCK_SIZE = 4
+PALETTE_SIZE = 1
 SIZE = 256 # fixed height in all pixelated images
 VIBRANCY = 1 # color saturation multiplier
 ALPHA_KEEP_THRESHOLD = 150 # pixels below this alpha become fully transparent
+REMOVEBG = True
 
 bgRemover = Remover()
 
@@ -51,16 +52,18 @@ elif input_path.is_file():
 else:
     raise Exception(f"\033[31m[ERROR] Input is neither a valid URL nor an existing file path: {IMAGE_SOURCE}\033[0m")
 
-print(f"\033[34mFormat: {imgRaw.format}, Size: {imgRaw.size}, Mode: {imgRaw.mode}\033[0m") # (debug)
-imgRaw.show() # (test)
+print(f"\033[34mFormat: {imgRaw.format}, Size: {imgRaw.size}, Mode: {imgRaw.mode}\033[0m")
 
 # REMOVE BACKGROUND
-imgCutout = bgRemover.process(imgRaw.convert("RGB"), type="rgba")
-if isinstance(imgCutout, np.ndarray):
-    imgCutout = Image.fromarray(imgCutout)
-if not isinstance(imgCutout, Image.Image):
-    raise TypeError("\033[31m[ERROR] Background remover returned an unsupported image type.\033[0m")
-imgCutout = imgCutout.convert("RGBA")
+if REMOVEBG:
+    imgCutout = bgRemover.process(imgRaw.convert("RGB"), type="rgba")
+    if isinstance(imgCutout, np.ndarray):
+        imgCutout = Image.fromarray(imgCutout)
+    if not isinstance(imgCutout, Image.Image):
+        raise TypeError("\033[31m[ERROR] Background remover returned an unsupported image type.\033[0m")
+    imgCutout = imgCutout.convert("RGBA")
+else:
+    imgCutout = imgRaw
 
 # CROP
 bbox = imgCutout.getbbox() # get non transparent object boundaries
