@@ -248,6 +248,16 @@ nextButton?.addEventListener("click", () => {
 window.addEventListener("mousemove", (event) => {
     document.body.style.setProperty("--mouse-x", `${event.clientX}px`);
     document.body.style.setProperty("--mouse-y", `${event.clientY}px`);
+
+    if (!spriteElement) {
+        return;
+    }
+
+    const normalizedX = (event.clientX / window.innerWidth - 0.5) * 2;
+    const normalizedY = (event.clientY / window.innerHeight - 0.5) * 2;
+
+    spriteElement.style.setProperty("--sprite-offset-x", `${Math.round(normalizedX * 3)}px`);
+    spriteElement.style.setProperty("--sprite-offset-y", `${Math.round(normalizedY * 2)}px`);
 });
 
 await loadSpacecrafts();

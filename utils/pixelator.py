@@ -19,11 +19,11 @@ if len(sys.argv) < 2:
 # CONFIGURATION PARAMETERS
 IMAGE_SOURCE = sys.argv[1] # copy the image url/path to a variable
 OUTPUT_PATH = Path(__file__).resolve().parent.parent / "tmp" # repo-relative tmp path
-BLOCK_SIZE = 4
-PALETTE_SIZE = 1
+BLOCK_SIZE = 2
+PALETTE_SIZE = 24
 SIZE = 256 # fixed height in all pixelated images
 VIBRANCY = 1 # color saturation multiplier
-ALPHA_KEEP_THRESHOLD = 150 # pixels below this alpha become fully transparent
+ALPHA_KEEP_THRESHOLD = 100 # pixels below this alpha become fully transparent
 REMOVEBG = True
 
 bgRemover = Remover()

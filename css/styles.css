@@ -1,15 +1,18 @@
 @import url("https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&display=swap");
 
 body {
+    --mouse-x: 50vw;
+    --mouse-y: 50vh;
     margin: 0;
     min-height: 100vh;
     background: #000000;
     background-image:
         radial-gradient(
-            rgba(255,255,255,0.1) 1px,
+            rgba(255,255,255,0.15) 1px,
             transparent 1px
         );
     background-size: 30px 30px;
+    background-position: calc(var(--mouse-x, 50vw) / -30) calc(var(--mouse-y, 50vh) / -30);
     color: #f5f7fb;
     font-family: "Pixelify Sans", sans-serif;
 }
@@ -40,7 +43,7 @@ body {
     padding: var(--capsule-padding);
     overflow: hidden;
     border-radius: 999px;
-    background-color: rgba(61, 61, 61, 0.218);
+    background-color: rgba(60, 60, 60, 0.2);
     transition: width 240ms ease, border-color 240ms ease;
     min-height: 42px;
     box-sizing: border-box;
@@ -49,7 +52,6 @@ body {
 .craft-navigator:hover,
 .craft-navigator:focus-within {
     width: var(--capsule-expanded-width);
-    background-color: rgba(61, 61, 61, 0.304);
 }
 
 .craft-track {
@@ -141,7 +143,7 @@ body {
 }
 
 .side-arrow:hover {
-    color: rgb(255, 73, 73);
+    color: rgb(255, 55, 55);
 }
 
 .spacecraft-sprite {
@@ -152,18 +154,35 @@ body {
     max-height: 460px;
     object-fit: contain;
     image-rendering: pixelated;
-    transform: translate(-50%, -50%) scale(var(--sprite-scale, 1));
+    transform:
+        translate(
+            calc(-50% + var(--sprite-offset-x, 0px)),
+            calc(-50% + var(--sprite-offset-y, 0px))
+        )
+        scale(var(--sprite-scale, 1));
     transform-origin: center center;
-    transition: transform 250ms ease, opacity 250ms ease;
+    transition: opacity 250ms ease;
 }
 
 .spacecraft-sprite.is-changing-next {
-    transform: translate(-65%, -50%) scale(var(--sprite-scale, 1));
+    transform:
+        translate(
+            calc(-65% + var(--sprite-offset-x, 0px)),
+            calc(-50% + var(--sprite-offset-y, 0px))
+        )
+        scale(var(--sprite-scale, 1));
+    transition: transform 250ms ease, opacity 250ms ease;
     opacity: 0;
 }
 
 .spacecraft-sprite.is-changing-previous {
-    transform: translate(-35%, -50%) scale(var(--sprite-scale, 1));
+    transform:
+        translate(
+            calc(-35% + var(--sprite-offset-x, 0px)),
+            calc(-50% + var(--sprite-offset-y, 0px))
+        )
+        scale(var(--sprite-scale, 1));
+    transition: transform 250ms ease, opacity 250ms ease;
     opacity: 0;
 }
 
@@ -174,7 +193,7 @@ body {
 .data-capsule {
     display: flex;
     flex-direction: row;
-    border: 1px solid rgb(255, 255, 255);
+    border: 3px solid #ff3737;
     border-radius: 999px;
     background-color: rgb(0, 0, 0);
     position: absolute;
