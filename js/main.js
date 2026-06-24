@@ -245,10 +245,10 @@ async function setCurrentIndex(index) {
 
     isAnimating = true;
 
-    const direction = "next";
+    const direction = index > oldIndex ? "next" : "previous";
 
     currentIndex = newIndex;
-    navigatorActiveCopy = getNextNavigatorCopy(oldIndex, newIndex);
+    navigatorActiveCopy = getNavigatorCopyForTransition(oldIndex, newIndex, direction);
     syncActiveOption();
     resetNavigatorCopyAfterTransition();
 
@@ -356,7 +356,7 @@ function syncActiveOption({ immediate = false } = {}) {
     });
 }
 
-function getNextNavigatorCopy(oldIndex, newIndex) {
+function getNavigatorCopyForTransition(oldIndex, newIndex, direction) {
     if (!trackElement) return NAVIGATOR_MIDDLE_COPY;
 
     const options = Array.from(trackElement.querySelectorAll(".craft-option"));
@@ -368,9 +368,15 @@ function getNextNavigatorCopy(oldIndex, newIndex) {
 
     if (!currentOption) return NAVIGATOR_MIDDLE_COPY;
 
-    const nextOption = options
-        .filter(option => Number(option.dataset.index) === newIndex)
-        .find(option => option.offsetLeft > currentOption.offsetLeft);
+    const matchingOptions = options
+        .filter(option => Number(option.dataset.index) === newIndex);
+
+    const nextOption =
+        direction === "next"
+            ? matchingOptions.find(option => option.offsetLeft > currentOption.offsetLeft)
+            : [...matchingOptions]
+                .reverse()
+                .find(option => option.offsetLeft < currentOption.offsetLeft);
 
     return Number(nextOption?.dataset.copy) || NAVIGATOR_MIDDLE_COPY;
 }

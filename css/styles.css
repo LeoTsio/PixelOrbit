@@ -117,11 +117,12 @@ body {
     border: 0;
     background: transparent;
 
-    color: #ffbd5a;
+    color: #8d724a;
     font-size: 100px;
     font-family: inherit;
 
     cursor: pointer;
+    transition: transform 180ms ease;
 }
 
 #previous {
@@ -133,7 +134,7 @@ body {
 }
 
 .side-arrow:hover {
-    color: #ffaa5a;
+    transform: translateY(-50%) scale(1.08);
 }
 
 .spacecraft-sprite {
