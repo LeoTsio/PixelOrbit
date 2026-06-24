@@ -8,13 +8,20 @@ body {
     background: #000000;
     background-image:
         radial-gradient(
-            rgba(255,255,255,0.15) 1px,
+            rgba(255,255,255,0.1) 1px,
             transparent 1px
         );
     background-size: 30px 30px;
     background-position: calc(var(--mouse-x, 50vw) / -30) calc(var(--mouse-y, 50vh) / -30);
     color: #f5f7fb;
     font-family: "Pixelify Sans", sans-serif;
+}
+
+.logo {
+    display: block;
+    scale: 0.9;
+    transform-origin: top left;
+    flex: 0 0 auto;
 }
 
 .top-bar {
@@ -25,28 +32,24 @@ body {
     padding: 20px;
 }
 
-.logo {
-    display: block;
-    scale: 0.9;
-    transform-origin: top left;
-    flex: 0 0 auto;
-}
-
 .craft-navigator {
     --capsule-collapsed-width: 140px;
-    --capsule-expanded-width: 300px;
+    --capsule-expanded-width: 520px;
     --capsule-padding: 8px;
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
+
+    position: relative;
+    left: auto;
+    transform: none;
+
+    height: 56px;
     width: var(--capsule-collapsed-width);
     padding: var(--capsule-padding);
     overflow: hidden;
+
     border-radius: 999px;
     background-color: rgba(60, 60, 60, 0.2);
-    transition: width 240ms ease, border-color 240ms ease;
-    min-height: 42px;
     box-sizing: border-box;
+    transition: width 280ms cubic-bezier(0.22,1,0.36,1);
 }
 
 .craft-navigator:hover,
@@ -56,14 +59,18 @@ body {
 
 .craft-track {
     position: relative;
-    left: 50%;
+    left: 0;
+
     display: flex;
     align-items: center;
     gap: 10px;
+
     width: max-content;
-    will-change: transform;
-    backface-visibility: hidden;
     transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.craft-track.no-transition {
+    transition: none;
 }
 
 .craft-option {
@@ -93,30 +100,13 @@ body {
 }
 
 .craft-option.is-active {
-    color: #ffffff;
+    color: #ffbd5a;
 }
 
 .spacecraft-stage {
     position: relative;
     height: 520px;
-}
-
-.spacecraft-sprite {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-
-    width: 800px;
-    max-height: 460px;
-
-    object-fit: contain;
-    image-rendering: pixelated;
-
-    transform:
-        translate(-50%, -50%)
-        scale(var(--sprite-scale, 1));
-
-    transform-origin: center center;
+    overflow: hidden;
 }
 
 .side-arrow {
@@ -127,7 +117,7 @@ body {
     border: 0;
     background: transparent;
 
-    color: rgb(255, 255, 255);
+    color: #ffbd5a;
     font-size: 100px;
     font-family: inherit;
 
@@ -143,10 +133,14 @@ body {
 }
 
 .side-arrow:hover {
-    color: rgb(255, 55, 55);
+    color: #ffaa5a;
 }
 
 .spacecraft-sprite {
+    --sprite-slide-distance: max(110vw, 1000px);
+    --sprite-slide-duration: 1150ms;
+    --sprite-slide-ease: cubic-bezier(0.2, 0.72, 0.18, 1);
+
     position: absolute;
     left: 50%;
     top: 50%;
@@ -161,29 +155,40 @@ body {
         )
         scale(var(--sprite-scale, 1));
     transform-origin: center center;
-    transition: opacity 250ms ease;
+    transition: none;
+    backface-visibility: hidden;
+    will-change: transform;
+    z-index: 2;
 }
 
 .spacecraft-sprite.is-changing-next {
     transform:
         translate(
-            calc(-65% + var(--sprite-offset-x, 0px)),
+            calc(-50% - var(--sprite-slide-distance) + var(--sprite-offset-x, 0px)),
             calc(-50% + var(--sprite-offset-y, 0px))
         )
         scale(var(--sprite-scale, 1));
-    transition: transform 250ms ease, opacity 250ms ease;
-    opacity: 0;
+    transition: transform var(--sprite-slide-duration) var(--sprite-slide-ease);
 }
 
 .spacecraft-sprite.is-changing-previous {
     transform:
         translate(
-            calc(-35% + var(--sprite-offset-x, 0px)),
+            calc(-50% + var(--sprite-slide-distance) + var(--sprite-offset-x, 0px)),
             calc(-50% + var(--sprite-offset-y, 0px))
         )
         scale(var(--sprite-scale, 1));
-    transition: transform 250ms ease, opacity 250ms ease;
-    opacity: 0;
+    transition: transform var(--sprite-slide-duration) var(--sprite-slide-ease);
+}
+
+.spacecraft-sprite.is-entering,
+.spacecraft-sprite.transition-clone {
+    transition: transform var(--sprite-slide-duration) var(--sprite-slide-ease);
+}
+
+.spacecraft-sprite.transition-clone {
+    pointer-events: none;
+    z-index: 1;
 }
 
 .spacecraft-sprite.no-transition {
@@ -193,7 +198,7 @@ body {
 .data-capsule {
     display: flex;
     flex-direction: row;
-    border: 3px solid #ff3737;
+    border: 3px solid #893500;
     border-radius: 999px;
     background-color: rgb(0, 0, 0);
     position: absolute;
@@ -202,7 +207,10 @@ body {
     bottom: 40px;
     padding: 8px 16px;
     gap: 50px;
-    width: max-content;
+    width: var(--data-capsule-width, max-content);
+    box-sizing: border-box;
+    overflow: hidden;
+    transition: width 320ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .data-capsule p {
@@ -211,6 +219,55 @@ body {
     font-size: 20px;
     line-height: 1.5;
     color: rgba(135, 135, 135, 0.5);
+}
+
+.stat-value {
+    position: relative;
+    display: inline-block;
+    height: 1.5em;
+    overflow: hidden;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.stat-value.is-scrolling {
+    width: var(--stat-value-width);
+}
+
+.stat-value-text {
+    display: block;
+    white-space: nowrap;
+}
+
+.stat-value-text.is-exiting {
+    position: absolute;
+    left: 0;
+    top: 0;
+    animation: stat-value-exit 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.stat-value-text.is-entering {
+    animation: stat-value-enter 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.stat-value-probe {
+    position: absolute;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+@keyframes stat-value-exit {
+    to {
+        opacity: 0;
+        transform: translateY(-110%);
+    }
+}
+
+@keyframes stat-value-enter {
+    from {
+        opacity: 0;
+        transform: translateY(110%);
+    }
 }
 
 .data-capsule img {

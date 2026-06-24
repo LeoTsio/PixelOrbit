@@ -27,7 +27,7 @@
     "provider": "hubble",
     "sprite": "assets/sprites/hubble.png",
     "name": "Hubble",
-    "scale": 0.8,
+    "scale": 0.9,
     "stats": {
       "stat1": {
         "label": "altitude",
@@ -40,6 +40,28 @@
       "stat3": {
         "label": "velocity",
         "icon": "assets/icons/speed.png"
+      }
+    }
+  },
+  {
+    "id": "perseverance",
+    "index": 1,
+    "provider": "perseverance",
+    "sprite": "assets/sprites/perseverance.png",
+    "name": "Perseverance",
+    "scale": 0.9,
+    "stats": {
+      "stat1": {
+        "label": "altitude",
+        "icon": "assets/icons/altitude.png"
+      },
+      "stat2": {
+        "label": "crew",
+        "icon": "assets/icons/crew.png"
+      },
+      "stat3": {
+        "label": "above",
+        "icon": "assets/icons/globe.png"
       }
     }
   }

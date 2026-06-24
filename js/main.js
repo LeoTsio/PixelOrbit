@@ -1,6 +1,7 @@
 const navigatorElement = document.querySelector(".craft-navigator");
 const trackElement = document.querySelector(".craft-track");
 const spriteElement = document.getElementById("craft-sprite");
+const dataCapsuleElement = document.querySelector(".data-capsule");
 
 const previousButton = document.getElementById("previous");
 const nextButton = document.getElementById("next");
@@ -14,37 +15,168 @@ const providers = {
 };
 
 const DATA_REFRESH_MS = 30000;
-const DATA_TIMEOUT_MS = 6000;
+const NAVIGATOR_COPY_COUNT = 3;
+const NAVIGATOR_MIDDLE_COPY = 1;
+const NAVIGATOR_TRANSITION_MS = 280;
+const SPRITE_TRANSITION_MS = 1150;
+const STAT_VALUE_SCROLL_MS = 280;
 
 let spacecrafts = [];
 let currentIndex = 0;
 let isAnimating = false;
 let activeRenderId = 0;
+let navigatorActiveCopy = NAVIGATOR_MIDDLE_COPY;
+let navigatorResetTimer = null;
+let dataCapsuleWidthFrame = null;
+const statValueTimers = new WeakMap();
+const statCache = new Map();
 
 async function loadSpacecrafts() {
     const response = await fetch("./data/spacecraftData.json");
     spacecrafts = await response.json();
 }
 
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+function waitForTransformTransition(element, fallbackMs) {
+    return new Promise(resolve => {
+        let isDone = false;
+
+        const finish = () => {
+            if (isDone) return;
+
+            isDone = true;
+            window.clearTimeout(timeout);
+            element.removeEventListener("transitionend", onTransitionEnd);
+            resolve();
+        };
+
+        const onTransitionEnd = event => {
+            if (event.target === element && event.propertyName === "transform") {
+                finish();
+            }
+        };
+
+        const timeout = window.setTimeout(finish, fallbackMs);
+
+        element.addEventListener("transitionend", onTransitionEnd);
+    });
 }
 
-function withTimeout(promise, ms) {
-    return Promise.race([
-        promise,
-        new Promise((_, reject) => {
-            setTimeout(() => reject(new Error("Request timed out")), ms);
-        })
-    ]);
+function scheduleDataCapsuleWidthUpdate() {
+    if (!dataCapsuleElement || dataCapsuleWidthFrame) return;
+
+    dataCapsuleWidthFrame = requestAnimationFrame(() => {
+        dataCapsuleWidthFrame = null;
+        updateDataCapsuleWidth();
+    });
+}
+
+function updateDataCapsuleWidth() {
+    if (!dataCapsuleElement) return;
+
+    const clone = dataCapsuleElement.cloneNode(true);
+
+    clone.querySelectorAll("[id]").forEach(element => {
+        element.removeAttribute("id");
+    });
+
+    clone.style.position = "absolute";
+    clone.style.left = "-10000px";
+    clone.style.bottom = "auto";
+    clone.style.transform = "none";
+    clone.style.visibility = "hidden";
+    clone.style.pointerEvents = "none";
+    clone.style.width = "max-content";
+    clone.style.transition = "none";
+
+    document.body.append(clone);
+
+    const width = Math.ceil(clone.getBoundingClientRect().width);
+
+    clone.remove();
+
+    dataCapsuleElement.style.setProperty("--data-capsule-width", `${width}px`);
+}
+
+function createStatValueSpan(text, className = "", isCurrent = true) {
+    const span = document.createElement("span");
+
+    span.className = [
+        "stat-value-text",
+        isCurrent ? "stat-value-current" : "",
+        className
+    ].filter(Boolean).join(" ");
+    span.textContent = text;
+
+    return span;
+}
+
+function getCurrentStatText(valueElement) {
+    const currentElement = valueElement.querySelector(".stat-value-current");
+
+    return currentElement?.textContent ?? valueElement.textContent;
+}
+
+function measureStatTextWidth(valueElement, text) {
+    const probe = document.createElement("span");
+
+    probe.className = "stat-value-text stat-value-probe";
+    probe.textContent = text;
+    valueElement.append(probe);
+
+    const width = Math.ceil(probe.getBoundingClientRect().width);
+
+    probe.remove();
+
+    return width;
+}
+
+function commitStatValue(valueElement, text) {
+    window.clearTimeout(statValueTimers.get(valueElement));
+    statValueTimers.delete(valueElement);
+
+    valueElement.classList.remove("is-scrolling");
+    valueElement.style.removeProperty("--stat-value-width");
+    valueElement.replaceChildren(createStatValueSpan(text));
+    scheduleDataCapsuleWidthUpdate();
+}
+
+function setStatValue(valueElement, nextValue) {
+    const nextText = String(nextValue);
+    const currentText = getCurrentStatText(valueElement);
+
+    if (!currentText || currentText === nextText) {
+        commitStatValue(valueElement, nextText);
+        return;
+    }
+
+    window.clearTimeout(statValueTimers.get(valueElement));
+
+    const currentWidth = measureStatTextWidth(valueElement, currentText);
+    const nextWidth = measureStatTextWidth(valueElement, nextText);
+
+    valueElement.style.setProperty(
+        "--stat-value-width",
+        `${Math.max(currentWidth, nextWidth)}px`
+    );
+    valueElement.classList.add("is-scrolling");
+    valueElement.replaceChildren(
+        createStatValueSpan(currentText, "is-exiting", false),
+        createStatValueSpan(nextText, "is-entering")
+    );
+
+    scheduleDataCapsuleWidthUpdate();
+
+    const timer = window.setTimeout(() => {
+        commitStatValue(valueElement, nextText);
+    }, STAT_VALUE_SCROLL_MS);
+
+    statValueTimers.set(valueElement, timer);
 }
 
 function showInitialSprite() {
     const craft = spacecrafts[currentIndex];
 
-    if (!craft || !spriteElement) {
-        return;
-    }
+    if (!craft || !spriteElement) return;
 
     spriteElement.src = craft.sprite;
     spriteElement.alt = craft.name;
@@ -54,9 +186,7 @@ function showInitialSprite() {
 async function updateSprite(direction) {
     const craft = spacecrafts[currentIndex];
 
-    if (!craft || !spriteElement) {
-        return;
-    }
+    if (!craft || !spriteElement) return;
 
     const exitClass =
         direction === "next"
@@ -68,12 +198,21 @@ async function updateSprite(direction) {
             ? "is-changing-previous"
             : "is-changing-next";
 
-    spriteElement.classList.add(exitClass);
+    const outgoingSprite = spriteElement.cloneNode(true);
 
-    await sleep(250);
+    outgoingSprite.removeAttribute("id");
+    outgoingSprite.classList.remove(
+        "is-changing-next",
+        "is-changing-previous",
+        "is-entering",
+        "no-transition"
+    );
+    outgoingSprite.classList.add("transition-clone");
+    outgoingSprite.setAttribute("aria-hidden", "true");
+    outgoingSprite.alt = "";
+    spriteElement.parentElement?.append(outgoingSprite);
 
     spriteElement.classList.add("no-transition");
-    spriteElement.classList.remove(exitClass);
     spriteElement.classList.add(enterClass);
 
     spriteElement.src = craft.sprite;
@@ -83,27 +222,35 @@ async function updateSprite(direction) {
     void spriteElement.offsetWidth;
 
     spriteElement.classList.remove("no-transition");
-    spriteElement.classList.remove(enterClass);
+    spriteElement.classList.add("is-entering");
+
+    requestAnimationFrame(() => {
+        outgoingSprite.classList.add(exitClass);
+        spriteElement.classList.remove(enterClass);
+    });
+
+    await waitForTransformTransition(outgoingSprite, SPRITE_TRANSITION_MS);
+
+    spriteElement.classList.remove("is-entering");
+    outgoingSprite.remove();
 }
 
 async function setCurrentIndex(index) {
-    if (isAnimating) {
-        return;
-    }
+    if (isAnimating) return;
 
     const oldIndex = currentIndex;
     const newIndex = (index + spacecrafts.length) % spacecrafts.length;
 
-    if (oldIndex === newIndex) {
-        return;
-    }
+    if (oldIndex === newIndex) return;
 
     isAnimating = true;
 
-    const direction = newIndex > oldIndex ? "next" : "previous";
+    const direction = "next";
 
     currentIndex = newIndex;
+    navigatorActiveCopy = getNextNavigatorCopy(oldIndex, newIndex);
     syncActiveOption();
+    resetNavigatorCopyAfterTransition();
 
     await updateSprite(direction);
 
@@ -115,127 +262,246 @@ async function setCurrentIndex(index) {
 }
 
 function renderNavigator() {
-    if (!navigatorElement || !trackElement) {
-        return;
-    }
+    if (!navigatorElement || !trackElement || spacecrafts.length === 0) return;
 
     trackElement.replaceChildren();
 
-    spacecrafts.forEach((craft, index) => {
-        const option = document.createElement("button");
+    for (let copy = 0; copy < NAVIGATOR_COPY_COUNT; copy += 1) {
+        spacecrafts.forEach((craft, index) => {
+            const option = document.createElement("button");
 
-        option.className = "craft-option";
-        option.type = "button";
-        option.textContent = craft.name;
-        option.dataset.index = String(index);
+            option.className = "craft-option";
+            option.type = "button";
+            option.textContent = craft.name;
+            option.dataset.index = String(index);
+            option.dataset.copy = String(copy);
 
-        option.addEventListener("click", () => {
-            setCurrentIndex(index);
-            option.blur();
+            if (copy !== NAVIGATOR_MIDDLE_COPY) {
+                option.tabIndex = -1;
+                option.setAttribute("aria-hidden", "true");
+            }
+
+            option.addEventListener("click", () => {
+                const targetIndex =
+                    index + (copy - NAVIGATOR_MIDDLE_COPY) * spacecrafts.length;
+
+                setCurrentIndex(targetIndex);
+                option.blur();
+            });
+
+            trackElement.append(option);
         });
+    }
 
-        trackElement.append(option);
-    });
+    syncActiveOption();
 }
 
-function syncActiveOption() {
-    if (!navigatorElement || !trackElement) {
-        return;
-    }
+function syncActiveOption({ immediate = false } = {}) {
+    if (!navigatorElement || !trackElement) return;
 
     const options = Array.from(trackElement.querySelectorAll(".craft-option"));
-    const activeOption = options[currentIndex];
-
-    if (!activeOption) {
-        return;
-    }
-
-    options.forEach((option, index) => {
-        option.classList.toggle("is-active", index === currentIndex);
-    });
-
-    const capsulePadding = 16;
-    const activeCenter = activeOption.offsetLeft + activeOption.offsetWidth / 2;
-    const leftExtent = activeCenter;
-    const rightExtent = trackElement.scrollWidth - activeCenter;
-    const collapsedWidth = Math.ceil(activeOption.offsetWidth + capsulePadding * 2);
-    const fullRevealWidth = Math.ceil(Math.max(leftExtent, rightExtent) * 2 + capsulePadding * 2);
-    const expandedWidth = Math.ceil(Math.min(fullRevealWidth, window.innerWidth - 40));
-
-    navigatorElement.style.setProperty("--capsule-collapsed-width", `${collapsedWidth}px`);
-    navigatorElement.style.setProperty(
-        "--capsule-expanded-width",
-        `${Math.max(collapsedWidth, expandedWidth)}px`
+    const activeOption = options.find(
+        option =>
+            Number(option.dataset.index) === currentIndex &&
+            Number(option.dataset.copy) === navigatorActiveCopy
     );
 
-    requestAnimationFrame(() => {
-        centerActiveOption(activeOption);
-    });
-}
+    if (!activeOption) return;
 
-function centerActiveOption(activeOption) {
-    if (!navigatorElement || !trackElement) {
+    options.forEach(option => {
+        option.classList.toggle(
+            "is-active",
+            Number(option.dataset.index) === currentIndex
+        );
+    });
+
+    const gap = 10;
+    const navigatorStyles = getComputedStyle(navigatorElement);
+    const padding =
+        parseFloat(navigatorStyles.getPropertyValue("--capsule-padding")) || 8;
+
+    const collapsedWidth = activeOption.offsetWidth + padding * 2;
+
+    const totalOptionsWidth =
+        spacecrafts.reduce((sum, _craft, index) => {
+            const option = options.find(
+                item =>
+                    Number(item.dataset.index) === index &&
+                    Number(item.dataset.copy) === NAVIGATOR_MIDDLE_COPY
+            );
+
+            return sum + (option?.offsetWidth ?? 0);
+        }, 0) +
+        gap * (spacecrafts.length - 1);
+
+    const expandedWidth = totalOptionsWidth + padding * 2;
+
+    navigatorElement.style.setProperty(
+        "--capsule-collapsed-width",
+        `${collapsedWidth}px`
+    );
+
+    navigatorElement.style.setProperty(
+        "--capsule-expanded-width",
+        `${expandedWidth}px`
+    );
+
+    if (immediate) {
+        updateNavigatorPosition(activeOption);
         return;
     }
 
-    const activeCenter = activeOption.offsetLeft + activeOption.offsetWidth / 2;
-
-    trackElement.style.transform =
-        `translate3d(${Math.round(-activeCenter)}px, 0, 0)`;
+    requestAnimationFrame(() => {
+        updateNavigatorPosition(activeOption);
+    });
 }
 
-async function renderData() {
+function getNextNavigatorCopy(oldIndex, newIndex) {
+    if (!trackElement) return NAVIGATOR_MIDDLE_COPY;
+
+    const options = Array.from(trackElement.querySelectorAll(".craft-option"));
+    const currentOption = options.find(
+        option =>
+            Number(option.dataset.index) === oldIndex &&
+            Number(option.dataset.copy) === NAVIGATOR_MIDDLE_COPY
+    );
+
+    if (!currentOption) return NAVIGATOR_MIDDLE_COPY;
+
+    const nextOption = options
+        .filter(option => Number(option.dataset.index) === newIndex)
+        .find(option => option.offsetLeft > currentOption.offsetLeft);
+
+    return Number(nextOption?.dataset.copy) || NAVIGATOR_MIDDLE_COPY;
+}
+
+function resetNavigatorCopyAfterTransition() {
+    window.clearTimeout(navigatorResetTimer);
+
+    if (navigatorActiveCopy === NAVIGATOR_MIDDLE_COPY) return;
+
+    navigatorResetTimer = window.setTimeout(() => {
+        navigatorActiveCopy = NAVIGATOR_MIDDLE_COPY;
+        trackElement.classList.add("no-transition");
+        syncActiveOption({ immediate: true });
+
+        void trackElement.offsetWidth;
+
+        requestAnimationFrame(() => {
+            trackElement.classList.remove("no-transition");
+        });
+    }, NAVIGATOR_TRANSITION_MS);
+}
+
+function updateNavigatorPosition(activeOption) {
+    if (!navigatorElement || !trackElement) return;
+
+    const isExpanded = navigatorElement.matches(":hover, :focus-within");
+
+    if (isExpanded) {
+        trackElement.style.transform =
+            `translate3d(${-activeOption.offsetLeft}px, 0, 0)`;
+        return;
+    }
+
+    const navigatorStyles = getComputedStyle(navigatorElement);
+    const collapsedWidth = parseFloat(
+        navigatorStyles.getPropertyValue("--capsule-collapsed-width")
+    );
+    const padding =
+        parseFloat(navigatorStyles.getPropertyValue("--capsule-padding")) || 0;
+
+    const activeCenter =
+        activeOption.offsetLeft + activeOption.offsetWidth / 2;
+
+    const offset =
+        activeCenter - (collapsedWidth / 2 - padding);
+
+    trackElement.style.transform =
+        `translate3d(${-offset}px, 0, 0)`;
+}
+
+async function renderData({ showLoading = false } = {}) {
     const renderId = ++activeRenderId;
 
     const spacecraft = spacecrafts[currentIndex];
-    const provider = providers[spacecraft.provider];
 
-    if (!spacecraft || !provider) {
+    if (!spacecraft) return;
+
+    const provider = providers[spacecraft.provider];
+    const cacheKey = getSpacecraftCacheKey(spacecraft);
+    const cachedStats = statCache.get(cacheKey);
+
+    renderLoadingStat(1, spacecraft.stats.stat1.icon, showLoading, cachedStats?.[1]);
+    renderLoadingStat(2, spacecraft.stats.stat2.icon, showLoading, cachedStats?.[2]);
+    renderLoadingStat(3, spacecraft.stats.stat3.icon, showLoading, cachedStats?.[3]);
+
+    if (!provider) {
+        renderStat(renderId, cacheKey, 1, Promise.resolve("—"));
+        renderStat(renderId, cacheKey, 2, Promise.resolve("—"));
+        renderStat(renderId, cacheKey, 3, Promise.resolve("—"));
         return;
     }
 
-    renderLoadingStat(1, spacecraft.stats.stat1.icon);
-    renderLoadingStat(2, spacecraft.stats.stat2.icon);
-    renderLoadingStat(3, spacecraft.stats.stat3.icon);
-
     const statPromises = provider();
 
-    renderStat(renderId, 1, statPromises[0]);
-    renderStat(renderId, 2, statPromises[1]);
-    renderStat(renderId, 3, statPromises[2]);
+    renderStat(renderId, cacheKey, 1, statPromises[0]);
+    renderStat(renderId, cacheKey, 2, statPromises[1]);
+    renderStat(renderId, cacheKey, 3, statPromises[2]);
 }
 
-function renderLoadingStat(number, icon) {
+function getSpacecraftCacheKey(spacecraft) {
+    return spacecraft.id ?? spacecraft.provider ?? spacecraft.name;
+}
+
+function cacheStatValue(cacheKey, number, value) {
+    if (!statCache.has(cacheKey)) {
+        statCache.set(cacheKey, {});
+    }
+
+    statCache.get(cacheKey)[number] = value;
+}
+
+function renderLoadingStat(number, icon, showLoading, cachedValue) {
     const valueElement = document.getElementById(`stat${number}-value`);
     const iconElement = document.getElementById(`stat${number}-icon`);
 
     iconElement.src = icon;
-    valueElement.textContent = "Loading...";
+
+    if (cachedValue !== undefined) {
+        setStatValue(valueElement, cachedValue);
+        return;
+    }
+
+    if (showLoading || !valueElement.textContent.trim()) {
+        setStatValue(valueElement, "Loading...");
+    }
 }
 
-async function renderStat(renderId, number, promise) {
+async function renderStat(renderId, cacheKey, number, promise) {
     const valueElement = document.getElementById(`stat${number}-value`);
 
     try {
         const value = await promise;
 
-        if (renderId !== activeRenderId) {
-            return;
-        }
+        cacheStatValue(cacheKey, number, value);
 
-        valueElement.textContent = value;
+        if (renderId !== activeRenderId) return;
+
+        setStatValue(valueElement, value);
     } catch {
-        if (renderId !== activeRenderId) {
-            return;
-        }
+        if (renderId !== activeRenderId) return;
 
-        valueElement.textContent = "—";
+        setStatValue(valueElement, "—");
     }
 }
 
-window.addEventListener("resize", () => {
-    syncActiveOption();
-});
+window.addEventListener("resize", syncActiveOption);
+
+navigatorElement?.addEventListener("mouseenter", syncActiveOption);
+navigatorElement?.addEventListener("mouseleave", syncActiveOption);
+navigatorElement?.addEventListener("focusin", syncActiveOption);
+navigatorElement?.addEventListener("focusout", syncActiveOption);
 
 previousButton?.addEventListener("click", () => {
     setCurrentIndex(currentIndex - 1);
@@ -249,22 +515,20 @@ window.addEventListener("mousemove", (event) => {
     document.body.style.setProperty("--mouse-x", `${event.clientX}px`);
     document.body.style.setProperty("--mouse-y", `${event.clientY}px`);
 
-    if (!spriteElement) {
-        return;
-    }
+    if (!spriteElement) return;
 
     const normalizedX = (event.clientX / window.innerWidth - 0.5) * 2;
     const normalizedY = (event.clientY / window.innerHeight - 0.5) * 2;
 
-    spriteElement.style.setProperty("--sprite-offset-x", `${Math.round(normalizedX * 3)}px`);
-    spriteElement.style.setProperty("--sprite-offset-y", `${Math.round(normalizedY * 2)}px`);
+    spriteElement.style.setProperty("--sprite-offset-x", `${Math.round(normalizedX * 8)}px`);
+    spriteElement.style.setProperty("--sprite-offset-y", `${Math.round(normalizedY * 6)}px`);
 });
 
 await loadSpacecrafts();
 
 renderNavigator();
-syncActiveOption();
 showInitialSprite();
+updateDataCapsuleWidth();
 
 await renderData({ showLoading: true });
 
